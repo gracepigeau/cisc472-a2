@@ -1,0 +1,69 @@
+CISC 472 Assignment 2
+Due March 10, 2020 before class
+
+
+Using the NDI Polaris system:
+
+1. Collect about 400 points to calibrate the stylus with 'pivot
+   calibration'.
+
+2. Repeat step 1 to collect a second set of calibration points.
+
+3. Collect about 20 individual points on the surface of the knee
+   phantom while the knee is also tracked by its own marker.  Each
+   point should be collected by resting the stylus at a particular
+   position for a few seconds.
+
+4. Repeat step 3 after moving the knee, but keeping the knee's marker
+   attached in the same place.
+
+You should have four CSV files of points after this.  Call them
+
+  pivot_calibration_1.csv
+  pivot_calibration_2.csv
+  knee_scan_1.csv
+  knee_scan_2.csv
+
+  The knee scan data will be used in Assignment 3.
+
+
+In Matlab, starting with the skeleton code provided:
+
+5. Implement a pivot calibration method using 'fitSphere' and other
+   code to determine the best-fit vector to the stylus tip in the
+   stylus's *local* coordinate system.
+
+5. Implement a RANSAC variant of 'fitSphere' called 'fitSphereWithRANSAC'.
+
+6. For your two sets of pivot calibration points and for the other set
+   provided in this assignment (called pivot_calibration_0.csv),
+   determine the best-fit vector using the 'fitSphere' and the
+   'fitSphereWithRANSAC'.  For each, record the standard deviation of
+   the best-fit vector.  For each, *render* the best-fit vectors (as
+   points), along with the ellipsoid of the 95% confidence interval.
+   Record the rendered images.
+
+7. What differences between your own pivot calibration data and the
+   provided data did you find?  What method was best for handling
+   each set of data.  Justify your answer.  What recommendations do
+   you have for pivot calibration?
+
+
+To hand in
+
+8. Create a directory called 'a2'.  In that directory, put these files:
+
+      a2.m
+      pivot_calibration_1.csv
+      pivot_calibration_2.csv
+      calibration_1.png             your rendered image of pivot_calibration_1.csv
+      calibration_1_ransac.png      your rendered image of pivot_calibration_1.csv using RANSAC
+      calibration_0.png             your rendered image of pivot_calibration_0.csv
+      calibration_0_ransac.png      your rendered image of pivot_calibration_0.csv using RANSAC
+      README.txt
+
+   The README.txt file should contain your name(s), student number(s),
+   and netid(s), along with your answers to #7 above and your best-fit
+   vectors and their standard deviation from #6.
+
+   Zip the a2 directory and mail it to jstewart@cs.queensu.ca.
