@@ -3,7 +3,13 @@ warning('off','all')
 
 stylusID = '8700340';
 markerID = '8700339';
+
+%From James Stewart provided for assignment
 dataFile = 'pivot_calibration_0.csv';
+%Collected by KB
+%dataFile = 'pivot1.csv';
+%Colltected by GP
+%dataFile = 'pivot2.csv';
 
 setupDrawing();
 
@@ -12,36 +18,29 @@ setupDrawing();
 
 [pos, orient] = read_NDI_data( dataFile, stylusID );
 
-pos = pos(200:size(pos,1),:);
-orient = orient(200:size(orient,1),:);
+% %TEST
+% pos = pos(200:size(pos,1),:);
+% orient = orient(200:size(orient,1),:);
 
 % fit the sphere to get centre c and radius r
 
 [c, r] = fitSphere( pos );
-
-[c_ransac,r_ransac, bestHoes] = fitSphereWithRANSAC(pos);
+%[c, r, bestInliers] = fitSphereWithRANSAC(pos);
 
 % Show the fit
-%drawPoints( pos );
 drawCoordSystems( pos, orient );
 drawSphere( c, r );
 
 % Transform c into the coordinate system of each pose
-
-% [YOUR CODE HERE]
 allCenters = zeros(length(pos),3);
 for i=1:size(pos,1)
-
     m = quaternion_to_matrix( orient(i,:) );
     t = pos(i,:);
-    
     allCenters(i,:) = m.' * (c-t).';
 end
 
-
 % Find the average transformed c, which should be the same in all of
 % the stylus coordinate systems.  Also find the standard deviation.
-
 c_average = mean(allCenters, 1);
 c_stdev = std(allCenters,1,1);
 
@@ -58,15 +57,13 @@ disp( sprintf( 'tip stdev in stylus CS:    (%g, %g, %g)', c_stdev(1),   c_stdev(
 %
 % This is for debugging, so that you can see that the vector touches
 % the same pivot point from all stylus coordinate systems.
-
-drawLocalVectorInCoordSystems( c_average, pos, orient );
+% drawLocalVectorInCoordSystems( c_average, pos, orient );
 
 % Show tip points in global system, along with 95% confidence
 % interval as an ellipsoid.
 %
 % 'c_world' are the tip points in the world coordinate system.
 % They should all be very near the pivot point.
-
 c_world = zeros(length(pos),3);
 for i=1:size(pos,1)
 
@@ -78,37 +75,32 @@ end
 c_world_average = mean(c_world, 1);
 c_world_stdv = std(c_world, 1);
 
-
-
-drawPointsWithEllipsoid( c_world, c_stdev );
-
-
+drawPointsWithEllipsoid( c_world, c_world_stdv );
 
 % ---------------- END OF MAIN CODE ----------------
-
 
 
 % Fit a sphere to a set of positions
 %
 % See http://watkins.cs.queensu.ca/~jstewart/472/notes/08-matrix-applications/08-matrix-applications.html
 
-function [c, r] = fitSphere(X)
+function [c, r] = fitSphere( pos )
+
+    %Use least squares solutions to solve Ax=b
     
-    A=[mean(X(:,1).*(X(:,1)-mean(X(:,1)))), ...
-    2*mean(X(:,1).*(X(:,2)-mean(X(:,2)))), ...
-    2*mean(X(:,1).*(X(:,3)-mean(X(:,3)))); ...
-    0, ...
-    mean(X(:,2).*(X(:,2)-mean(X(:,2)))), ...
-    2*mean(X(:,2).*(X(:,3)-mean(X(:,3)))); ...
-    0, ...
-    0, ...
-    mean(X(:,3).*(X(:,3)-mean(X(:,3))))];
-    A=A+A.';
-    B=[mean((X(:,1).^2+X(:,2).^2+X(:,3).^2).*(X(:,1)-mean(X(:,1))));...
-        mean((X(:,1).^2+X(:,2).^2+X(:,3).^2).*(X(:,2)-mean(X(:,2))));...
-        mean((X(:,1).^2+X(:,2).^2+X(:,3).^2).*(X(:,3)-mean(X(:,3))))];
-    c=(A\B).';
-    r=sqrt(mean(sum([X(:,1)-c(1),X(:,2)-c(2),X(:,3)-c(3)].^2,2)));
+    Ax = [ mean(pos(:,1).*(pos(:,1)-mean(pos(:,1)))) 2*mean(pos(:,1).*(pos(:,2)-mean(pos(:,2))))  2*mean(pos(:,1).*(pos(:,3)-mean(pos(:,3))))];
+    Ay = [ 0  mean(pos(:,2).*(pos(:,2)-mean(pos(:,2)))) 2*mean(pos(:,2).*(pos(:,3)-mean(pos(:,3))))];
+    Az = [ 0 0 mean(pos(:,3).*(pos(:,3)-mean(pos(:,3)))) ];
+    A = [Ax; Ay; Az];
+    A = A + A.';
+    
+    Bx = mean((pos(:,1).^2+pos(:,2).^2+pos(:,3).^2).*(pos(:,1)-mean(pos(:,1))));
+    By = mean((pos(:,1).^2+pos(:,2).^2+pos(:,3).^2).*(pos(:,2)-mean(pos(:,2))));
+    Bz = mean((pos(:,1).^2+pos(:,2).^2+pos(:,3).^2).*(pos(:,3)-mean(pos(:,3))));
+    B=[Bx; By; Bz];
+    
+    c = (A\B).';
+    r = sqrt(mean(sum([pos(:,1)-c(1), pos(:,2)-c(2), pos(:,3)-c(3)].^2,2)));
 end
   
 
@@ -121,85 +113,58 @@ end
 
 function [c, r, bestInlierIndices] = fitSphereWithRANSAC( pos )
     
-    %[ YOUR CODE HERE ]
-    num_points = size(pos,1);
-    max_dist_from_sphere = 5;
-    min_points_needed = .1*num_points;
     iters = 0;
+    num_points = size(pos,1);
     
+    %Number of points required to use sphere aka "ENOUGH"
+    min_points_needed = .8*num_points;
+    
+    %Attempt 500 iterations of RANSAC
     while iters < 500
+        
         %randomly pick 4 points
         rand_indices = randsample(size(pos,1), 4);
         rand_points = [pos(rand_indices(1),:); pos(rand_indices(2),:); pos(rand_indices(3),:); pos(rand_indices(4),:)];
 
         %calculate sphere defined by 4 points
-        [c, r] = calculateSphereFromPoints(rand_points);
+        [c_temp, r_temp] = fitSphere(rand_points);
+        
+        %Distance points must be from sphere to count as "CLOSE"
+        max_dist_from_sphere = .1*r_temp;
 
-        %find distance between all points and sphere
+        %find distance (abs val) between all points and sphere
         distances = zeros(num_points,1);
         for i = 1:num_points
-            distances(i) = abs(norm(pos(i,:) - c) - r);
+            distances(i) = abs(norm(pos(i,:) - c_temp) - r_temp);
         end
         
         %If ENOUGH points (% of points defined by min_points_needed) 
         %are CLOSE (within range defined by max_dist_from_sphere) stop
         
         %Get indices of points which are within max distance from sphere
-        bestInlierIndices=find(distances<max_dist_from_sphere);
+        currentInlierIndices=find(distances<max_dist_from_sphere);
         
-        %If count of indices is greater than set % of points
-        if size(bestInlierIndices,1) > min_points_needed
+        %If count of indices is greater than set % of points return sphere
+        if size(currentInlierIndices,1) > min_points_needed
+            bestInlierIndices = currentInlierIndices;
+            c = c_temp;
+            r = r_temp;
             break
         end
+        
+        %Keep track of best sphere (if not returning sphere)
+        if size(currentInlierIndices,1) > size(bestInlierIndices,1)
+            bestInlierIndices = currentInlierIndices;
+            c = c_temp;
+            r = r_temp;
+        end
+                
         iters = iters + 1;
     end
     
 end
 
-function [c, r] = calculateSphereFromPoints( pts )
-    p1 = pts(1,:);
-    p2 = pts(2,:);
-    p3 = pts(4,:);
-    p4 = pts(4,:);
-    
-    sympref('FloatingPointOutput',true);
-    syms a b c r;
-    eqn1 = (p1(1) - a).^2 + (p1(2) - b).^2 + (p1(3) - c).^2 == r.^2;
-    eqn2 = (p2(1) - a).^2 + (p2(2) - b).^2 + (p2(3) - c).^2 == r.^2;
-    eqn3 = (p3(1) - a).^2 + (p3(2) - b).^2 + (p3(3) - c).^2 == r.^2;
-    eqn4 = (p4(1) - a).^2 + (p4(2) - b).^2 + (p4(3) - c).^2 == r.^2;
-    
-    eqn1 = eqn1 - eqn4;
-    eqn2 = eqn2 - eqn4;
-    eqn3 = eqn3 - eqn4;
-    
-    
-    [A, B] = equationsToMatrix([eqn1, eqn2, eqn3], [a,b,c]);
-    
-    Unknowns = linsolve(A,B);
-    
-    rSquared = (p4(1) - Unknowns(1)).^2 + (p4(2) - Unknowns(2)).^2 + (p4(3) - Unknowns(3)).^2;
-    
-    r = double(sqrt(rSquared));
-    
-    center_x = double(Unknowns(1));
-    center_y = double(Unknowns(2));
-    center_z = double(Unknowns(3));
-    c = [center_x, center_y, center_z];
-    
-    % TESTING5
-%     figure; hold on;
-%     scatter3(pts(:,1), pts(:,2), pts(:,3), 'blue');
-%     scatter3(center_x, center_y, center_z, 'red');
-%     drawSphere([center_x, center_y, center_z], r);
-%     axis equal;
-%     figure;
-
-end
-  
-
 % From https://www.mathworks.com/matlabcentral/fileexchange/35475-quaternions
-%
 % Convert quaternion to 3x3 matrix.
 
 function R = quaternion_to_matrix( Qrotation )
@@ -324,12 +289,12 @@ function drawCoordSystems( pos, orient )
     end
 end
 
+% Draw all points
+
 function drawPoints( pos )
     %figure;hold on;
     scatter3(pos(:,1),pos(:,2),pos(:,3),50,'filled');
 end
-
-
 
 % Draw a sphere
 
@@ -362,15 +327,16 @@ end
 % Draw points with a 95% CI ellipsoid.
 %
 % Use matlab's 'ellipsoid' and 'surf' functions.
-%
-% [YOUR CODE HERE]
 
 function drawPointsWithEllipsoid( points, stdev )
 
+    %Find mean aka center of ellipsoid
     mean_point = mean(points,1);
+    
+    %Define constant for use with 95% confidence interval
     std_dev_95_constant = 1.960;
-    num_points = size(points,1);
-    step_maybe = stdev(1) / sqrt(num_points);
+
+    %Calculate the radius in each direction
     x_radius = std_dev_95_constant * stdev(1);
     y_radius = std_dev_95_constant * stdev(2);
     z_radius = std_dev_95_constant * stdev(3)
