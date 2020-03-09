@@ -7,9 +7,9 @@ markerID = '8700339';
 %From James Stewart provided for assignment
 dataFile = 'pivot_calibration_0.csv';
 %Collected by KB
-%dataFile = 'pivot1.csv';
+%dataFile = 'pivot_calibration_1.csv';
 %Colltected by GP
-%dataFile = 'pivot2.csv';
+%dataFile = 'pivot_calibration_2.csv';
 
 setupDrawing();
 
@@ -24,8 +24,8 @@ setupDrawing();
 
 % fit the sphere to get centre c and radius r
 
-[c, r] = fitSphere( pos );
-%[c, r, bestInliers] = fitSphereWithRANSAC(pos);
+%[c, r] = fitSphere( pos );
+[c, r, bestInliers] = fitSphereWithRANSAC(pos);
 
 % Show the fit
 drawCoordSystems( pos, orient );
@@ -57,7 +57,7 @@ disp( sprintf( 'tip stdev in stylus CS:    (%g, %g, %g)', c_stdev(1),   c_stdev(
 %
 % This is for debugging, so that you can see that the vector touches
 % the same pivot point from all stylus coordinate systems.
-% drawLocalVectorInCoordSystems( c_average, pos, orient );
+drawLocalVectorInCoordSystems( c_average, pos, orient );
 
 % Show tip points in global system, along with 95% confidence
 % interval as an ellipsoid.
