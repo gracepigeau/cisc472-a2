@@ -25,7 +25,14 @@ setupDrawing();
 % fit the sphere to get centre c and radius r
 
 %[c, r] = fitSphere( pos );
+
+% RANSAC outlier removal
 [c, r, bestInliers] = fitSphereWithRANSAC(pos);
+pos_best = zeros(length(bestInliers), 3);
+for ix=1:length(bestInliers)
+    pos_best(ix,:) = pos(bestInliers(ix),:);
+end
+pos = pos_best;
 
 % Show the fit
 drawCoordSystems( pos, orient );
