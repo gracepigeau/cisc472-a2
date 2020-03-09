@@ -24,15 +24,18 @@ setupDrawing();
 
 % fit the sphere to get centre c and radius r
 
-%[c, r] = fitSphere( pos );
+[c, r] = fitSphere( pos );
 
-% RANSAC outlier removal
-[c, r, bestInliers] = fitSphereWithRANSAC(pos);
-pos_best = zeros(length(bestInliers), 3);
-for ix=1:length(bestInliers)
-    pos_best(ix,:) = pos(bestInliers(ix),:);
-end
-pos = pos_best;
+% % RANSAC outlier removal
+% [c, r, bestInliers] = fitSphereWithRANSAC(pos);
+% pos_best = zeros(length(bestInliers), 3);
+% orient_best = zeros(length(bestInliers), 4);
+% for ix=1:length(bestInliers)
+%     pos_best(ix,:) = pos(bestInliers(ix),:);
+%     orient_best(ix,:) = orient(bestInliers(ix),:);
+% end
+% pos = pos_best;
+% orient = orient_best;
 
 % Show the fit
 drawCoordSystems( pos, orient );
@@ -82,7 +85,9 @@ end
 c_world_average = mean(c_world, 1);
 c_world_stdv = std(c_world, 1);
 
-drawPointsWithEllipsoid( c_world, c_world_stdv );
+%drawPointsWithEllipsoid( c_world, c_world_stdv );
+
+drawPointsWithEllipsoidWithArrow(c_world, c_world_stdv );
 
 % ---------------- END OF MAIN CODE ----------------
 
@@ -124,7 +129,7 @@ function [c, r, bestInlierIndices] = fitSphereWithRANSAC( pos )
     num_points = size(pos,1);
     
     %Number of points required to use sphere aka "ENOUGH"
-    min_points_needed = .8*num_points;
+    min_points_needed = .9*num_points;
     
     %Attempt 500 iterations of RANSAC
     while iters < 500
@@ -137,7 +142,7 @@ function [c, r, bestInlierIndices] = fitSphereWithRANSAC( pos )
         [c_temp, r_temp] = fitSphere(rand_points);
         
         %Distance points must be from sphere to count as "CLOSE"
-        max_dist_from_sphere = .1*r_temp;
+        max_dist_from_sphere = .05*r_temp;
 
         %find distance (abs val) between all points and sphere
         distances = zeros(num_points,1);
@@ -150,12 +155,14 @@ function [c, r, bestInlierIndices] = fitSphereWithRANSAC( pos )
         
         %Get indices of points which are within max distance from sphere
         currentInlierIndices=find(distances<max_dist_from_sphere);
+        bestInlierIndices = [];
         
         %If count of indices is greater than set % of points return sphere
-        if size(currentInlierIndices,1) > min_points_needed
+        if length(currentInlierIndices) > min_points_needed
             bestInlierIndices = currentInlierIndices;
             c = c_temp;
             r = r_temp;
+            disp("FOUND BEST");
             break
         end
         
@@ -360,4 +367,36 @@ function drawPointsWithEllipsoid( points, stdev )
     axis equal;
 end
 
+function drawPointsWithEllipsoidWithArrow(points, stdev)
+    [X,Y,Z] = ellipsoid(0,0,0,1,1,1);
+
+    [eigvec,eigval] = eig(cov(points));
+
+    XYZ = [X(:),Y(:),Z(:)] * (1.96*sqrt(eigval)) * eigvec';
+
+    mu = mean( points );
+
+    X(:) = XYZ(:,1)+mu(1);
+    Y(:) = XYZ(:,2)+mu(2);
+    Z(:) = XYZ(:,3)+mu(3);
+
+    figure; hold on;
+    xlabel("X");
+    ylabel("Y");
+    zlabel("Z");
+    scatter3(points(:,1),points(:,2),points(:,3));
+    scatter3(mu(1), mu(2), mu(3), 50, 'red');
+    surf( X, Y, Z, 'FaceAlpha', 0.1);
+    axis equal;
+
+    mn = min(points);
+    mx = max(points);
+    axis( [mn(1),mx(1),mn(2),mx(2),mn(3),mx(3)] );
+
+    %This draws the vector along the stylus axis:
+    
+    tip = mean( points); 
+    arrow3( [0, 0, 0], [tip(1), tip(2), tip(3)], 'f', 1 );
+
+end
 
